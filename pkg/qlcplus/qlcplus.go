@@ -2,28 +2,31 @@ package qlcplus
 
 import (
 	"fmt"
-	"github.com/gorilla/websocket"
 	"net/url"
 	"strings"
+
+	"github.com/gorilla/websocket"
 )
 
-// Connection is a connection to a QLC+ instance.
-type Connection struct {
-	// Address is the IP address or hostname, and port number, to access QLC+.
+// Whether to print websocket messages, used for development.
+var debug = false
+
+// WebsocketConnectionHandler handles a websocket connection to a QLC+ instance.
+type WebsocketConnectionHandler struct {
+	// Address is the IP address or hostname, and port number, to access the QLC+ websocket.
 	Address string
 }
 
 // GetWidgetsMap returns a map of widget IDs to names.
-func (q *Connection) GetWidgetsMap() (map[string]string, error) {
-	message := "QLC+API|getWidgetsList"
-	widgetsListString, err := q.writeRead(message)
+func (q *WebsocketConnectionHandler) GetWidgetsMap() (map[string]string, error) {
+	request := "QLC+API|getWidgetsList"
+	widgetsListString, err := q.makeRequest(request, "")
 	if err != nil {
 		return nil, err
 	}
-	widgetsListString = strings.TrimPrefix(widgetsListString, message + "|")
 	widgetsList := strings.Split(widgetsListString, "|")
 	widgetsMap := make(map[string]string)
-	for i := 0; i < len(widgetsList); i = i + 2 {
+	for i := 0; i < len(widgetsList) - 1; i = i + 2 {
 		widgetsMap[widgetsList[i]] = widgetsList[i + 1]
 	}
 	return widgetsMap, nil
@@ -31,7 +34,7 @@ func (q *Connection) GetWidgetsMap() (map[string]string, error) {
 
 // GetWidgetIDByName gets the ID of a widget from its name. If multiple widgets have the same name the behaviour is
 // undefined.
-func (q *Connection) GetWidgetIDByName(widgetNameToFind string) (string, error) {
+func (q *WebsocketConnectionHandler) GetWidgetIDByName(widgetNameToFind string) (string, error) {
 	widgetsMap, err := q.GetWidgetsMap()
 	if err != nil {
 		return "", err
@@ -45,12 +48,13 @@ func (q *Connection) GetWidgetIDByName(widgetNameToFind string) (string, error) 
 }
 
 // GetWidgetStatusByID gets the status of a widget by ID.
-func (q *Connection) GetWidgetStatusByID(widgetID string) (string, error) {
-	return q.writeRead(fmt.Sprintf("QLC+API|getWidgetStatus|%s", widgetID))
+func (q *WebsocketConnectionHandler) GetWidgetStatusByID(widgetID string) (string, error) {
+	getWidgetStatus := "QLC+API|getWidgetStatus"
+	return q.makeRequest(getWidgetStatus, widgetID)
 }
 
 // GetWidgetStatusByName gets the status of a widget by name.
-func (q *Connection) GetWidgetStatusByName(widgetName string) (string, error) {
+func (q *WebsocketConnectionHandler) GetWidgetStatusByName(widgetName string) (string, error) {
 	widgetID, err := q.GetWidgetIDByName(widgetName)
 	if err != nil {
 		return "", err
@@ -60,22 +64,42 @@ func (q *Connection) GetWidgetStatusByName(widgetName string) (string, error) {
 
 // SetWidgetStatusByID sets the status of a widget by ID. How the widget behaves with the specified value depends on the
 // widget type.
-func (q *Connection) SetWidgetStatusByID(widgetID, widgetValue string) (string, error) {
-	return q.writeRead(fmt.Sprintf("%s|%s", widgetID, widgetValue))
+func (q *WebsocketConnectionHandler) SetWidgetStatusByID(widgetID, widgetValue string) (string, error) {
+	return q.makeRequest(widgetID, widgetValue)
 }
 
 // SetWidgetStatusByName sets the status of a widget by name. How the widget behaves with the specified value depends on
 // the widget type.
-func (q *Connection) SetWidgetStatusByName(widgetName, widgetValue string) (string, error) {
+func (q *WebsocketConnectionHandler) SetWidgetStatusByName(widgetName, widgetValue string) (string, error) {
 	widgetID, err := q.GetWidgetIDByName(widgetName)
 	if err != nil {
 		return "", err
 	}
-	return q.writeRead(fmt.Sprintf("%s|%s", widgetID, widgetValue))
+	return q.SetWidgetStatusByID(widgetID, widgetValue)
+}
+
+// makeRequest wraps the readWrite function to confirm the response is in the expected format and strip the prefix.
+func (q *WebsocketConnectionHandler) makeRequest(request, value string) (string, error) {
+	// Compose the message from the request and value if present.
+	message := request
+	if value != "" {
+		message = fmt.Sprintf("%s|%s", request, value)
+	}
+	// Write the request message and read the response.
+	response, err := q.writeRead(message)
+	if err != nil {
+		return "", err
+	}
+	// Verify the response is in the expected format.
+	if strings.Count(response, request) != 1 {
+		return "", fmt.Errorf("unexpected response from QLC+ websocket, sent message: \"%s\", got response \"%s\"", message, request)
+	}
+	// Return the response without the request string.
+	return strings.TrimPrefix(response, request + "|"), nil
 }
 
 // writeRead creates a new QLC+ websocket connection and uses it to write the specified message then read the response.
-func (q *Connection) writeRead(message string) (string, error) {
+func (q *WebsocketConnectionHandler) writeRead(message string) (string, error) {
 	// Create the websocket URL.
 	u := url.URL{Scheme: "ws", Host: q.Address, Path: "/qlcplusWS"}
 	// Connect to the websocket.
@@ -85,6 +109,9 @@ func (q *Connection) writeRead(message string) (string, error) {
 	}
 	defer c.Close()
 	// Write a message to the websocket.
+	if debug {
+		fmt.Printf("Writing websocket message: %s\n", message)
+	}
 	err = c.WriteMessage(websocket.TextMessage, []byte(message))
 	if err != nil {
 		return "", err
@@ -93,6 +120,9 @@ func (q *Connection) writeRead(message string) (string, error) {
 	_, p, err := c.ReadMessage()
 	if err != nil {
 		return "", err
+	}
+	if debug {
+		fmt.Printf("Read websocket message: %s\n", string(p))
 	}
 	return string(p), nil
 }
