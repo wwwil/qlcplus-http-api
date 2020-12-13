@@ -1,0 +1,15 @@
+[Unit]
+Description=QLC+ HTTP API
+Documentation=https://github.com/wwwil/qlcplus-http-api
+Wants=network.target
+After=network.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+ExecStart=/usr/local/bin/qlcplus-http-api --http 0.0.0.0:8888
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

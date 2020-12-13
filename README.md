@@ -41,6 +41,27 @@ Currently only buttons and sliders are supported. The interaction behaviour depe
 support sending a value of `255` to indicate a button press, sliders can be sent values between `0` and `255` to set a
 slider position.
 
+## Installation
+
+The `qlcplus-http-api` can be run as a systemd unit. Copy the binary to the correct location, add the provided systemd
+unit file, then reload and start the service:
+
+```bash
+cp ./qlcplus-http-api /usr/local/bin/qlcplus-http-api
+cp ./deploy/qlcplus-http-api.service /etc/systemd/system/qlcplus-http-api.service
+systemctl daemon-reload
+systemctl enable qlcplus-http-api
+systemctl start qlcplus-http-api
+```
+
+Modify the systemd unit file as required to pass the correct argument values to `qlcplus-http-api`.
+
+View and follow the logs with:
+
+```bash
+journalctl -f -u qlcplus-http-api
+```
+
 ## Building
 
 Use the [`make.sh`](./make.sh) script to build for your platform:
