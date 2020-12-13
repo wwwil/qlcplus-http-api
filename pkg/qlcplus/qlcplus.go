@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -62,6 +63,8 @@ func (q *WebsocketConnectionHandler) GetWidgetStatusByName(widgetName string) (s
 	return q.GetWidgetStatusByID(widgetID)
 }
 
+// TODO: Add functions to getWidgetType.
+
 // SetWidgetStatusByID sets the status of a widget by ID. How the widget behaves with the specified value depends on the
 // widget type.
 func (q *WebsocketConnectionHandler) SetWidgetStatusByID(widgetID, widgetValue string) (string, error) {
@@ -86,6 +89,9 @@ func (q *WebsocketConnectionHandler) makeRequest(request, value string) (string,
 		message = fmt.Sprintf("%s|%s", request, value)
 	}
 	// Write the request message and read the response.
+	// TODO: If the widget's current value is already the value to set then QLC+ will not respond. This causes the read
+	//       request to hang until it hits the timeout, it does not affect other requests. This should be
+	//       checked or handled in some way.
 	response, err := q.writeRead(message)
 	if err != nil {
 		return "", err
@@ -107,6 +113,9 @@ func (q *WebsocketConnectionHandler) writeRead(message string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// Set a 10 second timeout.
+	c.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	c.SetReadDeadline(time.Now().Add(10 * time.Second))
 	defer c.Close()
 	// Write a message to the websocket.
 	if debug {
