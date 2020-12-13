@@ -53,3 +53,9 @@ Use the [`make.sh`](./make.sh) script to build for your platform:
 
 Refer to the [QLC+ Web API test page](https://www.qlcplus.org/Test_Web_API.html) for more details on how to interact
 with QLC+ over a websocket. You may need to save the page locally for it to work correctly.
+
+Known issues:
+
+- When setting a widget to a value it already has QLC+ will not respond. This mostly affects slider widgets as buttons
+  are usually only pressed briefly. This causes the read request to hang until it hits the timeout, it does not affect
+  other requests.
