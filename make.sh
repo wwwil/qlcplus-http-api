@@ -40,6 +40,34 @@ function build-all() {
     build windows amd64
 }
 
+function package-all() {
+    if [ ! -d "${BUILD_DIR}" ]; then
+        echo "No builds to package."
+        exit
+    fi
+    for BUILD in "${BUILD_DIR}"/*; do
+        if [ ! -d "${BUILD}" ]; then
+            continue
+        fi
+        ZIP_NAME=${BUILD_DIR}/$(basename "${BUILD}").zip
+        if [ -f "${ZIP_NAME}" ]; then
+            rm "${ZIP_NAME}"
+        fi
+        echo "Packaging build ${ZIP_NAME}."
+        cd "${BUILD}"
+        zip -q "${ZIP_NAME}" ./*
+    done
+}
+
+function install() {
+    build
+    cp "${BUILD_OUTPUT}" "${GOPATH}/bin"
+}
+
+function clean() {
+    rm -r "${BUILD_DIR}"
+}
+
 # Check the first argument passed is a function.
 if [ "$(type -t $FUNC)" != "function" ]; then
     # If not warn and print the list of functions.
