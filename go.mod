@@ -1,4 +1,4 @@
-module github.com/wwwil/qlcplus-websocket-http
+module github.com/wwwil/qlcplus-http-api
 
 go 1.14
 
